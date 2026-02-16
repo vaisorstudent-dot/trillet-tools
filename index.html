@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trillet Timezone Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e1117;
+    --surface: #161b22;
+    --surface-hover: #1c2129;
+    --border: #30363d;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #484f58;
+    --denver: #f0883e;
+    --telaviv: #58a6ff;
+    --melbourne: #7ee787;
+    --rome: #d2a8ff;
+    --accent-glow: rgba(88, 166, 255, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+    overflow-x: hidden;
+  }
+
+  .container {
+    max-width: 880px;
+    margin: 0 auto;
+  }
+
+  .header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--melbourne);
+    animation: pulse 2s ease-in-out infinite;
+    display: inline-block;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* CLOCKS GRID */
+  .clocks {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .clock-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .clock-card:hover {
+    border-color: var(--text-muted);
+  }
+
+  .clock-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+  }
+
+  .clock-card[data-zone="denver"]::before { background: var(--denver); }
+  .clock-card[data-zone="telaviv"]::before { background: var(--telaviv); }
+  .clock-card[data-zone="melbourne"]::before { background: var(--melbourne); }
+  .clock-card[data-zone="rome"]::before { background: var(--rome); }
+
+  .clock-location {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 2px;
+  }
+
+  .clock-card[data-zone="denver"] .clock-location { color: var(--denver); }
+  .clock-card[data-zone="telaviv"] .clock-location { color: var(--telaviv); }
+  .clock-card[data-zone="melbourne"] .clock-location { color: var(--melbourne); }
+  .clock-card[data-zone="rome"] .clock-location { color: var(--rome); }
+
+  .clock-person {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .clock-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .clock-date {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .clock-status {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+  }
+
+  .clock-status.working { color: var(--melbourne); border-color: rgba(126, 231, 135, 0.2); }
+  .clock-status.evening { color: var(--denver); border-color: rgba(240, 136, 62, 0.2); }
+  .clock-status.night { color: var(--text-muted); border-color: var(--border); }
+  .clock-status.morning { color: var(--telaviv); border-color: rgba(88, 166, 255, 0.2); }
+
+  /* CONVERTER */
+  .converter {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .converter-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+  }
+
+  .converter-input-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .converter-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .converter select,
+  .converter input[type="time"],
+  .converter input[type="date"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+
+  .converter select {
+    padding-right: 32px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    cursor: pointer;
+  }
+
+  .converter select:focus,
+  .converter input:focus {
+    border-color: var(--telaviv);
+  }
+
+  .converter input[type="time"] {
+    width: 140px;
+  }
+
+  .converter input[type="date"] {
+    width: 160px;
+  }
+
+  .converter-results {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .result-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    position: relative;
+  }
+
+  .result-card.source {
+    border-color: var(--telaviv);
+    background: var(--accent-glow);
+  }
+
+  .result-location {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .result-card[data-zone="denver"] .result-location { color: var(--denver); }
+  .result-card[data-zone="telaviv"] .result-location { color: var(--telaviv); }
+  .result-card[data-zone="melbourne"] .result-location { color: var(--melbourne); }
+  .result-card[data-zone="rome"] .result-location { color: var(--rome); }
+
+  .result-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .result-date {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .result-day-diff {
+    font-size: 10px;
+    color: var(--rome);
+    margin-top: 4px;
+  }
+
+  .source-badge {
+    font-size: 9px;
+    color: var(--telaviv);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    position: absolute;
+    top: 8px;
+    right: 10px;
+  }
+
+  /* OVERLAP FINDER */
+  .overlap {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .overlap-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+  }
+
+  .overlap-bar-container {
+    position: relative;
+    margin-bottom: 12px;
+  }
+
+  .overlap-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .overlap-bar {
+    height: 24px;
+    background: var(--bg);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .overlap-fill {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    border-radius: 3px;
+    opacity: 0.6;
+  }
+
+  .overlap-fill.denver { background: var(--denver); }
+  .overlap-fill.telaviv { background: var(--telaviv); }
+  .overlap-fill.melbourne { background: var(--melbourne); }
+  .overlap-fill.rome { background: var(--rome); }
+
+  .hour-marks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+  }
+
+  .hour-mark {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    width: 30px;
+    text-align: center;
+  }
+
+  .overlap-window {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: rgba(126, 231, 135, 0.06);
+    border: 1px solid rgba(126, 231, 135, 0.15);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  .overlap-window strong {
+    color: var(--melbourne);
+  }
+
+  @media (max-width: 700px) {
+    .clocks { grid-template-columns: repeat(2, 1fr); }
+    .converter-results { grid-template-columns: repeat(2, 1fr); }
+    .converter-input-row { flex-direction: column; align-items: stretch; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>Trillet Timezone Hub</h1>
+    <span class="live-dot"></span>
+  </div>
+
+  <!-- LIVE CLOCKS -->
+  <div class="clocks" id="clocks"></div>
+
+  <!-- CONVERTER -->
+  <div class="converter">
+    <div class="converter-header">Time Converter</div>
+    <div class="converter-input-row">
+      <span class="converter-label">Set time in</span>
+      <select id="source-zone">
+        <option value="America/Denver">Denver</option>
+        <option value="Asia/Jerusalem">Tel Aviv</option>
+        <option value="Australia/Melbourne">Melbourne</option>
+        <option value="Europe/Rome">Rome</option>
+      </select>
+      <input type="time" id="source-time" value="10:00">
+      <input type="date" id="source-date">
+    </div>
+    <div class="converter-results" id="converter-results"></div>
+  </div>
+
+  <!-- WORKING HOURS OVERLAP -->
+  <div class="converter" style="margin-top: 12px;">
+    <div class="overlap">
+      <div class="overlap-header">Working Hours Overlap (9am-6pm local)</div>
+      <div id="overlap-bars"></div>
+      <div class="hour-marks" id="hour-marks"></div>
+      <div class="overlap-window" id="overlap-window"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ZONES = [
+  { id: 'denver', tz: 'America/Denver', label: 'Denver', person: 'Ori', color: '#f0883e' },
+  { id: 'telaviv', tz: 'Asia/Jerusalem', label: 'Tel Aviv', person: 'Barak', color: '#58a6ff' },
+  { id: 'melbourne', tz: 'Australia/Melbourne', label: 'Melbourne', person: 'Ming / Laurence', color: '#7ee787' },
+  { id: 'rome', tz: 'Europe/Rome', label: 'Rome', person: 'Muly', color: '#d2a8ff' }
+];
+
+function getTimeInZone(tz, date = new Date()) {
+  return new Date(date.toLocaleString('en-US', { timeZone: tz }));
+}
+
+function formatTime(date) {
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+function formatDate(date) {
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${days[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
+}
+
+function getStatus(hour) {
+  if (hour >= 9 && hour < 18) return { text: 'Working', class: 'working' };
+  if (hour >= 18 && hour < 21) return { text: 'Evening', class: 'evening' };
+  if (hour >= 6 && hour < 9) return { text: 'Morning', class: 'morning' };
+  return { text: 'Night', class: 'night' };
+}
+
+function renderClocks() {
+  const container = document.getElementById('clocks');
+  container.innerHTML = ZONES.map(z => {
+    const now = getTimeInZone(z.tz);
+    const hour = now.getHours();
+    const status = getStatus(hour);
+    return `
+      <div class="clock-card" data-zone="${z.id}">
+        <div class="clock-location">${z.label}</div>
+        <div class="clock-person">${z.person}</div>
+        <div class="clock-time">${formatTime(now)}</div>
+        <div class="clock-date">${formatDate(now)}</div>
+        <span class="clock-status ${status.class}">${status.text}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderConverter() {
+  const sourceZone = document.getElementById('source-zone').value;
+  const sourceTime = document.getElementById('source-time').value;
+  const sourceDate = document.getElementById('source-date').value;
+
+  if (!sourceTime || !sourceDate) return;
+
+  const [hours, minutes] = sourceTime.split(':').map(Number);
+  
+  // Build a date in the source timezone
+  const sourceDateObj = new Date(`${sourceDate}T${sourceTime}:00`);
+  
+  // Get the offset for the source timezone
+  const sourceStr = sourceDateObj.toLocaleString('en-US', { timeZone: sourceZone });
+  const utcStr = sourceDateObj.toLocaleString('en-US', { timeZone: 'UTC' });
+  const sourceAsLocal = new Date(sourceStr);
+  const utcAsLocal = new Date(utcStr);
+  const offsetMs = utcAsLocal - sourceAsLocal;
+  
+  // UTC time of the input
+  const utcTime = new Date(sourceDateObj.getTime() + offsetMs);
+
+  const container = document.getElementById('converter-results');
+  const sourceDateFormatted = formatDate(sourceDateObj);
+
+  container.innerHTML = ZONES.map(z => {
+    const converted = getTimeInZone(z.tz, utcTime);
+    const isSource = z.tz === sourceZone;
+    const convertedDateStr = formatDate(converted);
+    
+    let dayDiff = '';
+    if (convertedDateStr !== sourceDateFormatted) {
+      const srcDay = new Date(sourceDate);
+      const convDay = new Date(converted.getFullYear(), converted.getMonth(), converted.getDate());
+      const diff = Math.round((convDay - srcDay) / (1000 * 60 * 60 * 24));
+      if (diff > 0) dayDiff = `+${diff} day${diff > 1 ? 's' : ''}`;
+      else if (diff < 0) dayDiff = `${diff} day${diff < -1 ? 's' : ''}`;
+    }
+
+    return `
+      <div class="result-card ${isSource ? 'source' : ''}" data-zone="${z.id}">
+        ${isSource ? '<span class="source-badge">Source</span>' : ''}
+        <div class="result-location">${z.label}</div>
+        <div class="result-time">${formatTime(converted)}</div>
+        <div class="result-date">${convertedDateStr}</div>
+        ${dayDiff ? `<div class="result-day-diff">${dayDiff}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function renderOverlap() {
+  const container = document.getElementById('overlap-bars');
+  const hourMarks = document.getElementById('hour-marks');
+  const windowEl = document.getElementById('overlap-window');
+
+  // Calculate working hours in UTC for each zone
+  const now = new Date();
+  const workingRanges = ZONES.map(z => {
+    // Get current offset from UTC for this timezone
+    const localNow = getTimeInZone(z.tz, now);
+    const utcNow = getTimeInZone('UTC', now);
+    const offsetHours = (localNow - utcNow) / (1000 * 60 * 60);
+    
+    // Working hours 9-18 local = (9 - offset) to (18 - offset) UTC
+    let startUTC = (9 - offsetHours + 24) % 24;
+    let endUTC = (18 - offsetHours + 24) % 24;
+    
+    return { ...z, startUTC, endUTC, offsetHours };
+  });
+
+  // Render bars (24h UTC timeline)
+  container.innerHTML = workingRanges.map(z => {
+    const startPct = (z.startUTC / 24) * 100;
+    let widthPct = ((z.endUTC - z.startUTC + 24) % 24) / 24 * 100;
+    if (widthPct === 0) widthPct = 100;
+
+    let fills = '';
+    if (z.startUTC < z.endUTC) {
+      fills = `<div class="overlap-fill ${z.id}" style="left:${startPct}%;width:${widthPct}%"></div>`;
+    } else {
+      // Wraps around midnight UTC
+      const firstWidth = ((24 - z.startUTC) / 24) * 100;
+      const secondWidth = (z.endUTC / 24) * 100;
+      fills = `
+        <div class="overlap-fill ${z.id}" style="left:${startPct}%;width:${firstWidth}%"></div>
+        <div class="overlap-fill ${z.id}" style="left:0%;width:${secondWidth}%"></div>
+      `;
+    }
+
+    return `
+      <div class="overlap-bar-container">
+        <div class="overlap-label">
+          <span>${z.label} (${z.person})</span>
+          <span>${Math.round(z.startUTC)}:00-${Math.round(z.endUTC)}:00 UTC</span>
+        </div>
+        <div class="overlap-bar">${fills}</div>
+      </div>
+    `;
+  }).join('');
+
+  // Hour marks
+  hourMarks.innerHTML = Array.from({ length: 9 }, (_, i) => {
+    const h = i * 3;
+    return `<span class="hour-mark">${String(h).padStart(2, '0')}:00</span>`;
+  }).join('');
+
+  // Find overlap windows
+  // Check each UTC hour for how many zones have working hours
+  const overlapHours = [];
+  for (let h = 0; h < 24; h++) {
+    const activeZones = workingRanges.filter(z => {
+      if (z.startUTC < z.endUTC) {
+        return h >= z.startUTC && h < z.endUTC;
+      } else {
+        return h >= z.startUTC || h < z.endUTC;
+      }
+    });
+    if (activeZones.length >= 2) {
+      overlapHours.push({ hour: h, zones: activeZones });
+    }
+  }
+
+  // Find the best window where Denver + Tel Aviv + Melbourne overlap (the core three)
+  const coreThree = overlapHours.filter(h => {
+    const ids = h.zones.map(z => z.id);
+    return ids.includes('denver') && ids.includes('telaviv') && ids.includes('melbourne');
+  });
+
+  if (coreThree.length > 0) {
+    const startUTC = coreThree[0].hour;
+    const endUTC = coreThree[coreThree.length - 1].hour + 1;
+    
+    const denverStart = (startUTC + workingRanges[0].offsetHours + 24) % 24;
+    const denverEnd = (endUTC + workingRanges[0].offsetHours + 24) % 24;
+    const tavStart = (startUTC + workingRanges[1].offsetHours + 24) % 24;
+    const tavEnd = (endUTC + workingRanges[1].offsetHours + 24) % 24;
+    const melStart = (startUTC + workingRanges[2].offsetHours + 24) % 24;
+    const melEnd = (endUTC + workingRanges[2].offsetHours + 24) % 24;
+
+    const fmt = h => `${Math.floor(h)}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+
+    windowEl.innerHTML = `
+      <strong>3-way overlap (Denver + Tel Aviv + Melbourne):</strong><br>
+      Denver ${fmt(denverStart)}-${fmt(denverEnd)} · 
+      Tel Aviv ${fmt(tavStart)}-${fmt(tavEnd)} · 
+      Melbourne ${fmt(melStart)}-${fmt(melEnd)}
+    `;
+  } else {
+    // Find best 2-way overlaps
+    const denverTAv = overlapHours.filter(h => {
+      const ids = h.zones.map(z => z.id);
+      return ids.includes('denver') && ids.includes('telaviv');
+    });
+    
+    if (denverTAv.length > 0) {
+      const startUTC = denverTAv[0].hour;
+      const endUTC = denverTAv[denverTAv.length - 1].hour + 1;
+      const denverStart = (startUTC + workingRanges[0].offsetHours + 24) % 24;
+      const denverEnd = (endUTC + workingRanges[0].offsetHours + 24) % 24;
+      const tavStart = (startUTC + workingRanges[1].offsetHours + 24) % 24;
+      const tavEnd = (endUTC + workingRanges[1].offsetHours + 24) % 24;
+      
+      const fmt = h => `${Math.floor(h)}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+      
+      windowEl.innerHTML = `
+        <strong>No 3-way overlap during standard hours.</strong><br>
+        Best 2-way (Denver + Tel Aviv): Denver ${fmt(denverStart)}-${fmt(denverEnd)} · Tel Aviv ${fmt(tavStart)}-${fmt(tavEnd)}
+      `;
+    } else {
+      windowEl.innerHTML = `<strong>No working-hours overlap found today.</strong>`;
+    }
+  }
+}
+
+// Init
+function init() {
+  // Set default date to today
+  const today = new Date();
+  const dateStr = today.getFullYear() + '-' + 
+    String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+    String(today.getDate()).padStart(2, '0');
+  document.getElementById('source-date').value = dateStr;
+
+  renderClocks();
+  renderConverter();
+  renderOverlap();
+
+  // Update clocks every second
+  setInterval(renderClocks, 1000);
+
+  // Converter listeners
+  document.getElementById('source-zone').addEventListener('change', renderConverter);
+  document.getElementById('source-time').addEventListener('input', renderConverter);
+  document.getElementById('source-date').addEventListener('input', renderConverter);
+}
+
+init();
+</script>
+
+</body>
+</html>
