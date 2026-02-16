@@ -458,6 +458,12 @@ function renderClocks() {
   }).join('');
 }
 
+function getOffsetMinutes(tz, refDate) {
+  const utcStr = refDate.toLocaleString('en-US', { timeZone: 'UTC' });
+  const tzStr = refDate.toLocaleString('en-US', { timeZone: tz });
+  return (new Date(utcStr) - new Date(tzStr)) / 60000;
+}
+
 function renderConverter() {
   const sourceZone = document.getElementById('source-zone').value;
   const sourceTime = document.getElementById('source-time').value;
@@ -465,44 +471,46 @@ function renderConverter() {
 
   if (!sourceTime || !sourceDate) return;
 
-  const [hours, minutes] = sourceTime.split(':').map(Number);
+  // Treat input as if it were UTC to avoid browser timezone interference
+  const asUTC = new Date(`${sourceDate}T${sourceTime}:00Z`);
   
-  // Build a date in the source timezone
-  const sourceDateObj = new Date(`${sourceDate}T${sourceTime}:00`);
+  // Get source timezone offset from UTC (negative = east of UTC)
+  const sourceOffsetMin = getOffsetMinutes(sourceZone, asUTC);
   
-  // Get the offset for the source timezone
-  const sourceStr = sourceDateObj.toLocaleString('en-US', { timeZone: sourceZone });
-  const utcStr = sourceDateObj.toLocaleString('en-US', { timeZone: 'UTC' });
-  const sourceAsLocal = new Date(sourceStr);
-  const utcAsLocal = new Date(utcStr);
-  const offsetMs = utcAsLocal - sourceAsLocal;
-  
-  // UTC time of the input
-  const utcTime = new Date(sourceDateObj.getTime() + offsetMs);
+  // Calculate actual UTC: e.g. 18:00 Melbourne (UTC+11) → 07:00 UTC
+  const utcTime = new Date(asUTC.getTime() + sourceOffsetMin * 60000);
 
   const container = document.getElementById('converter-results');
-  const sourceDateFormatted = formatDate(sourceDateObj);
+
+  // Source date for day-diff comparison (just the date part)
+  const [srcYear, srcMonth, srcDay] = sourceDate.split('-').map(Number);
 
   container.innerHTML = ZONES.map(z => {
-    const converted = getTimeInZone(z.tz, utcTime);
     const isSource = z.tz === sourceZone;
-    const convertedDateStr = formatDate(converted);
+    
+    // Format the UTC time in the target timezone
+    const options = { timeZone: z.tz, hour: 'numeric', minute: '2-digit', hour12: true };
+    const timeStr = utcTime.toLocaleString('en-US', options);
+    
+    const dateOptions = { timeZone: z.tz, weekday: 'short', month: 'short', day: 'numeric' };
+    const dateStr = utcTime.toLocaleString('en-US', dateOptions);
+
+    // Calculate day difference
+    const targetFull = new Date(utcTime.toLocaleString('en-US', { timeZone: z.tz }));
+    const targetDay = new Date(targetFull.getFullYear(), targetFull.getMonth(), targetFull.getDate());
+    const srcDayDate = new Date(srcYear, srcMonth - 1, srcDay);
+    const diff = Math.round((targetDay - srcDayDate) / (1000 * 60 * 60 * 24));
     
     let dayDiff = '';
-    if (convertedDateStr !== sourceDateFormatted) {
-      const srcDay = new Date(sourceDate);
-      const convDay = new Date(converted.getFullYear(), converted.getMonth(), converted.getDate());
-      const diff = Math.round((convDay - srcDay) / (1000 * 60 * 60 * 24));
-      if (diff > 0) dayDiff = `+${diff} day${diff > 1 ? 's' : ''}`;
-      else if (diff < 0) dayDiff = `${diff} day${diff < -1 ? 's' : ''}`;
-    }
+    if (diff > 0) dayDiff = `+${diff} day${diff > 1 ? 's' : ''}`;
+    else if (diff < 0) dayDiff = `${diff} day${diff < -1 ? 's' : ''}`;
 
     return `
       <div class="result-card ${isSource ? 'source' : ''}" data-zone="${z.id}">
         ${isSource ? '<span class="source-badge">Source</span>' : ''}
         <div class="result-location">${z.label}</div>
-        <div class="result-time">${formatTime(converted)}</div>
-        <div class="result-date">${convertedDateStr}</div>
+        <div class="result-time">${timeStr}</div>
+        <div class="result-date">${dateStr}</div>
         ${dayDiff ? `<div class="result-day-diff">${dayDiff}</div>` : ''}
       </div>
     `;
